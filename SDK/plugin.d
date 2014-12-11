@@ -52,7 +52,7 @@ extern(C)
 	align(1)
 	struct PluginData
 	{
-		LogPrintf_fn fnLogPrintf;
+		LogPrintf_fn logPrintf;
 		void* lpUnknown[15];
 		AmxFunctions* amxExports;
 		void* fnCallPublicFS;
