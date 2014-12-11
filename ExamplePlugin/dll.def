@@ -1,0 +1,10 @@
+EXETYPE      NT
+CODE         PRELOAD DISCARDABLE
+DATA         PRELOAD MULTIPLE
+
+EXPORTS
+	Load
+	Unload
+	AmxLoad
+	AmxUnload
+	Supports
