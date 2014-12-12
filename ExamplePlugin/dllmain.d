@@ -110,7 +110,7 @@ extern(System)
 		}
 		catch(AmxException e)
 		{
-			LogPrintf("Could not register natives with AMX: %s", e.getErrorString());
+			LogPrintf("Could not register natives with AMX: %s", e.getErrorString().ptr);
 			return e.getError();
 		}
 
