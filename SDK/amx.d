@@ -1,5 +1,7 @@
 module sampsdk.amx;
 
+import sampsdk.exception;
+
 extern(C)
 {
 	__gshared AmxFunctions* RawAmxFunctions;
@@ -46,7 +48,7 @@ extern(C)
 	alias AmxFindNative_fn = AmxError function(ref Amx amx, const char* name, int* index);
 	alias AmxFindPublic_fn = AmxError function(ref Amx amx, const char* funcname, int* index);
 	alias AmxFindPubVar_fn = AmxError function(ref Amx amx, const char* varname, cell* amx_addr);
-	alias AmxFindTagId_fn = AmxError function(ref Amx amx, cell tag_id, immutable(char*) tagname);
+	alias AmxFindTagId_fn = AmxError function(ref Amx amx, cell tag_id, /*const*/ char* tagname);
 	alias AmxFlags_fn = AmxError function(ref Amx amx, AmxFlags* flags);
 	alias AmxGetAddr_fn = AmxError function(ref Amx amx, cell amx_addr, cell** phys_addr);
 	alias AmxGetNative_fn = AmxError function(ref Amx amx, int index, char* funcname);
@@ -162,6 +164,13 @@ extern(C)
 		AmxNative_fn func;
 	}
 
+	struct AmxMemInfo
+	{
+		long codesize;
+		long datasize;
+		long stackheap;
+	}
+
 	struct AmxFuncStub
 	{
 		ucell address;
@@ -194,36 +203,6 @@ extern(C)
 		int tags;
 		int nametable;
 	}
-
-	enum AmxError : int
-	{
-		NONE,
-		EXIT,
-		ASSERT,
-		STACKERR,
-		BOUNDS,
-		MEMACCESS,
-		INVINSTR,
-		STACKLOW,
-		HEAPLOW,
-		CALLBACK,
-		NATIVE,
-		DIVIDE,
-		SLEEP,
-		INVSTATE,
-		MEMORY = 16,
-		FORMAT,
-		VERSION,
-		NOTFOUND,
-		INDEX,
-		DEBUG,
-		INIT,
-		USERDATA,
-		INIT_JIT,
-		PARAMS,
-		DOMAIN,
-		GENERAL,
-	};
 
 	enum AmxFlags : short
 	{
@@ -275,9 +254,13 @@ extern(C)
 	}
 
 	@trusted
-	AmxError AmxRegister(ref Amx amx, const AmxNativeInfo[] nativelist, int number)
+	void AmxRegister(ref Amx amx, const AmxNativeInfo[] nativelist, int number)
 	{
-		return RawAmxFunctions.Register(amx, nativelist.ptr, number);
+		AmxError error = RawAmxFunctions.Register(amx, nativelist.ptr, number);
+
+		if(error)
+			throw new AmxException(error);
+
 	}
 
 	@trusted
@@ -285,14 +268,17 @@ extern(C)
 	{
 		cell* amx_cstr;
 		int amx_length;
+		AmxError error;
 
-		RawAmxFunctions.GetAddr(amx, param, &amx_cstr);
-		RawAmxFunctions.StrLen(amx_cstr, &amx_length);
+		if((error = RawAmxFunctions.GetAddr(amx, param, &amx_cstr)) != 0 || (error = RawAmxFunctions.StrLen(amx_cstr, &amx_length)) != 0)
+			throw new AmxException(error);
 		
 		if(amx_length)
 		{
 			char[] buf = new char[](amx_length + 1);
-			RawAmxFunctions.GetString(buf.ptr, amx_cstr, false, amx_length + 1);
+			
+			if((error = RawAmxFunctions.GetString(buf.ptr, amx_cstr, false, amx_length + 1)) != 0)
+				throw new AmxException(error);
 
 			return cast(immutable(char[]))buf;
 		}
@@ -301,129 +287,246 @@ extern(C)
 	}
 
 	@trusted
-	AmxError AmxRegisterFunc(ref Amx amx, string name, AmxNative_fn func)
+	void AmxRegisterFunc(ref Amx amx, string name, AmxNative_fn func)
 	{
-		return RawAmxFunctions.Register(amx, RawAmxFunctions.NativeInfo(name.ptr, func), 1);
+		AmxError error = RawAmxFunctions.Register(amx, RawAmxFunctions.NativeInfo(name.ptr, func), 1);
+
+		if(error)
+			throw new AmxException(error);
+
 	}
 
 	@trusted
-	AmxError AmxFindNative(ref Amx amx, string name, out int index)
+	int AmxFindNative(ref Amx amx, string name)
 	{
-		return RawAmxFunctions.FindNative(amx, name.ptr, &index);
+		int index;
+		AmxError error = RawAmxFunctions.FindNative(amx, name.ptr, &index);
+
+		if(error)
+			throw new AmxException(error);
+		
+		return index;
 	}
 
 	@trusted
-	AmxError AmxFindPublic(ref Amx amx, string name, out int index)
+	int AmxFindPublic(ref Amx amx, string name)
 	{
-		return RawAmxFunctions.FindPublic(amx, name.ptr, &index);
+		int index;
+		AmxError error = RawAmxFunctions.FindPublic(amx, name.ptr, &index);
+
+		if(error)
+			throw new AmxException(error);
+
+		return index;
 	}
 
 	@trusted
-	AmxError AmxFindPubVar(ref Amx amx, string varname, out cell amx_addr)
+	cell AmxFindPubVar(ref Amx amx, string varname)
 	{
-		return RawAmxFunctions.FindPubVar(amx, varname.ptr, &amx_addr);
+		cell amx_addr;
+
+		AmxError error = RawAmxFunctions.FindPubVar(amx, varname.ptr, &amx_addr);
+
+		if(error)
+			throw new AmxException(error);
+
+		return amx_addr;
 	}
 
 	@trusted
-	AmxError AmxCallback(ref Amx amx, cell index, out cell result, cell* params)
+	cell AmxCallback(ref Amx amx, cell index, cell* params)
 	{
-		return RawAmxFunctions.Callback(amx, index, &result, params);
+		cell result;
+		AmxError error = RawAmxFunctions.Callback(amx, index, &result, params);
+
+		if(error)
+			throw new AmxException(error);
+
+		return result;
 	}
 
 	@trusted
-	AmxError AmxCleanup(ref Amx amx)
+	void AmxCleanup(ref Amx amx)
 	{
-		return RawAmxFunctions.Cleanup(amx);
+		AmxError error = RawAmxFunctions.Cleanup(amx);
+
+		if(error)
+			throw new AmxException(error);
+
 	}
 
 	@trusted
-	AmxError AmxClone(ref Amx amxClone, ref Amx amxSource, void* data)
+	void AmxClone(ref Amx amxClone, ref Amx amxSource, void* data)
 	{
-		return RawAmxFunctions.Clone(amxClone, amxSource, data);
+		AmxError error = RawAmxFunctions.Clone(amxClone, amxSource, data);
+
+		if(error)
+			throw new AmxException(error);
+
 	}
 
 	@trusted
-	AmxError AmxExec(ref Amx amx, out cell retval, int index)
+	cell AmxExec(ref Amx amx, int index)
 	{
-		return RawAmxFunctions.Exec(amx, &retval, index);
+		cell retval;
+		AmxError error = RawAmxFunctions.Exec(amx, &retval, index);
+
+		if(error)
+			throw new AmxException(error);
+
+		return retval;
 	}
 
 	@trusted
-	AmxError AmxFindTagId(ref Amx amx, cell tag_id, string tagname)
+	string AmxFindTagId(ref Amx amx, cell tag_id, size_t len)
 	{
-		return RawAmxFunctions.FindTagId(amx, tag_id, tagname.ptr);
+		char[] str = new char[](len);
+		AmxError error = RawAmxFunctions.FindTagId(amx, tag_id, str.ptr);
+
+		if(error)
+			throw new AmxException(error);
+
+		return cast(string)str;
 	}
 
 	@trusted
-	AmxError AmxGetFlags(ref Amx amx, out AmxFlags flags)
+	AmxFlags AmxGetFlags(ref Amx amx)
 	{
-		return RawAmxFunctions.Flags(amx, &flags);
+		AmxFlags flags;
+		AmxError error = RawAmxFunctions.Flags(amx, &flags);
+
+		if(error)
+			throw new AmxException(error);
+
+		return flags;
 	}
 
 	@trusted
-	AmxError AmxGetAddr(ref Amx amx, cell amx_addr, out cell* phys_addr)
+	cell* AmxGetAddr(ref Amx amx, cell amx_addr)
 	{
-		return RawAmxFunctions.GetAddr(amx, amx_addr, &phys_addr);
+		cell* phys_addr;
+		AmxError error = RawAmxFunctions.GetAddr(amx, amx_addr, &phys_addr);
+
+		if(error)
+			throw new AmxException(error);
+
+		return phys_addr;
 	}
 
 	@trusted
-	AmxError AmxGetNative(ref Amx amx, int index, char[] funcname)
+	string AmxGetNative(ref Amx amx, int index, size_t len)
 	{
-		return RawAmxFunctions.GetNative(amx, index, funcname.ptr);
+		char[] funcname = new char[](len);
+		AmxError error = RawAmxFunctions.GetNative(amx, index, funcname.ptr);
+
+		if(error)
+			throw new AmxException(error);
+
+		return cast(string)funcname;
 	}
 
 	@trusted
-	AmxError AmxGetPublic(ref Amx amx, int index, char[] funcname)
+	string AmxGetPublic(ref Amx amx, int index, size_t len)
 	{
-		return RawAmxFunctions.GetPublic(amx, index, funcname.ptr);
+		char[] funcname = new char[](len);
+		AmxError error = RawAmxFunctions.GetPublic(amx, index, funcname.ptr);
+
+		if(error)
+			throw new AmxException(error);
+
+		return cast(string)funcname;
 	}
 
 	@trusted
-	AmxError AmxGetPubVar(ref Amx amx, int index, char[] varname, out cell amx_addr)
+	string AmxGetPubVar(ref Amx amx, int index, out cell amx_addr, size_t len)
 	{
-		return RawAmxFunctions.GetPubVar(amx, index, varname.ptr, &amx_addr);
+		char[] varname = new char[](len);
+		AmxError error = RawAmxFunctions.GetPubVar(amx, index, varname.ptr, &amx_addr);
+
+		if(error)
+			throw new AmxException(error);
+
+		return cast(string)varname;
 	}
 
 	@trusted
-	AmxError AmxGetString(char[] dest, const cell* source, int use_wchar, size_t size)
+	string AmxGetString(const cell* source, bool use_wchar, size_t size)
 	{
-		return RawAmxFunctions.GetString(dest.ptr, source, use_wchar, size);
+		char[] dest = new char[](size);
+		AmxError error = RawAmxFunctions.GetString(dest.ptr, source, use_wchar, size);
+
+		if(error)
+			throw new AmxException(error);
+
+		return cast(string)dest;
 	}
 
 	@trusted
-	AmxError AmxGetTag(ref Amx amx, int index, char[] tagname, out cell tag_id)
+	string AmxGetTag(ref Amx amx, int index, out cell tag_id, size_t len)
 	{
-		return RawAmxFunctions.GetTag(amx, index, tagname.ptr, &tag_id);
+		char[] tagname = new char[](len);
+		AmxError error = RawAmxFunctions.GetTag(amx, index, tagname.ptr, &tag_id);
+
+		if(error)
+			throw new AmxException(error);
+
+		return cast(string)tagname;
 	}
 
 	@trusted
-	AmxError AmxGetUserData(ref Amx amx, long tag, out void* ptr)
+	void* AmxGetUserData(ref Amx amx, long tag)
 	{
-		return RawAmxFunctions.GetUserData(amx, tag, &ptr);
+		void* ptr;
+		AmxError error = RawAmxFunctions.GetUserData(amx, tag, &ptr);
+
+		if(error)
+			throw new AmxException(error);
+
+		return ptr;
 	}
 
 	@trusted
-	AmxError AmxInit(ref Amx amx, void* program)
+	void AmxInit(ref Amx amx, void* program)
 	{
-		return RawAmxFunctions.Init(amx, program);
+		AmxError error = RawAmxFunctions.Init(amx, program);
+
+		if(error)
+			throw new AmxException(error);
+
 	}
 
 	@trusted
-	AmxError AmxInitJIT(ref Amx amx, void* reloc_table, void* native_code)
+	void AmxInitJIT(ref Amx amx, void* reloc_table, void* native_code)
 	{
-		return RawAmxFunctions.InitJIT(amx, reloc_table, native_code);
+		AmxError error = RawAmxFunctions.InitJIT(amx, reloc_table, native_code);
+
+		if(error)
+			throw new AmxException(error);
+
 	}
 
 	@trusted
-	AmxError AmxMemInfo(ref Amx amx, out long codesize, out long datasize, out long stackheap)
+	AmxMemInfo AmxGetMemInfo(ref Amx amx)
 	{
-		return RawAmxFunctions.MemInfo(amx, &codesize, &datasize, &stackheap);
+		AmxMemInfo memInfo;
+		AmxError error = RawAmxFunctions.MemInfo(amx, &(memInfo.codesize), &(memInfo.datasize), &(memInfo.stackheap));
+
+		if(error)
+			throw new AmxException(error);
+
+		return memInfo;
 	}
 
 	@trusted
-	AmxError AmxNameLength(ref Amx amx, out int length)
+	int AmxNameLength(ref Amx amx)
 	{
-		return RawAmxFunctions.NameLength(amx, &length);
+		int length;
+		AmxError error = RawAmxFunctions.NameLength(amx, &length);
+
+		if(error)
+			throw new AmxException(error);
+
+		return length;
 	}
 
 	@trusted
@@ -433,116 +536,214 @@ extern(C)
 	}
 
 	@trusted
-	AmxError AmxNumNatives(ref Amx amx, ref int number)
+	int AmxNumNatives(ref Amx amx)
 	{
-		return RawAmxFunctions.NumNatives(amx, &number);
+		int number;
+		AmxError error = RawAmxFunctions.NumNatives(amx, &number);
+
+		if(error)
+			throw new AmxException(error);
+
+		return number;
 	}
 
 	@trusted
-	AmxError AmxNumPublics(ref Amx amx, ref int number)
+	int AmxNumPublics(ref Amx amx)
 	{
-		return RawAmxFunctions.NumPublics(amx, &number);
+		int number;
+		AmxError error = RawAmxFunctions.NumPublics(amx, &number);
+
+		if(error)
+			throw new AmxException(error);
+
+		return number;
 	}
 
 	@trusted
-	AmxError AmxNumPubVars(ref Amx amx, ref int number)
+	int AmxNumPubVars(ref Amx amx)
 	{
-		return RawAmxFunctions.NumPubVars(amx, &number);
+		int number;
+		AmxError error = RawAmxFunctions.NumPubVars(amx, &number);
+
+		if(error)
+			throw new AmxException(error);
+
+		return number;
 	}
 
 	@trusted
-	AmxError AmxNumTags(ref Amx amx, ref int number)
+	int AmxNumTags(ref Amx amx)
 	{
-		return RawAmxFunctions.NumTags(amx, &number);
+		int number;
+		AmxError error = RawAmxFunctions.NumTags(amx, &number);
+
+		if(error)
+			throw new AmxException(error);
+
+		return number;
 	}
 
 	@trusted
-	AmxError AmxPush(ref Amx amx, cell value)
+	void AmxPush(ref Amx amx, cell value)
 	{
-		return RawAmxFunctions.Push(amx, value);
+		AmxError error = RawAmxFunctions.Push(amx, value);
+
+		if(error)
+			throw new AmxException(error);
+
 	}
 
 	@trusted
-	AmxError AmxPushString(ref Amx amx, ref cell amx_addr, cell** phys_addr, string str, int pack, int use_wchar)
+	cell AmxPushString(ref Amx amx, cell** phys_addr, string str, bool pack, bool use_wchar)
 	{
-		return RawAmxFunctions.PushString(amx, &amx_addr, phys_addr, str.ptr, pack, use_wchar);
+		cell amx_addr;
+		AmxError error = RawAmxFunctions.PushString(amx, &amx_addr, phys_addr, str.ptr, pack, use_wchar);
+
+		if(error)
+			throw new AmxException(error);
+
+		return amx_addr;
 	}
 
 	@trusted
-	AmxError AmxPushArray(ref Amx amx, ref cell amx_addr, cell** phys_addr, const cell[] array, int numcells)
+	cell AmxPushArray(ref Amx amx, cell** phys_addr, const cell[] array, int numcells)
 	{
-		return RawAmxFunctions.PushArray(amx, &amx_addr, phys_addr, array.ptr, numcells);
+		cell amx_addr;
+		AmxError error = RawAmxFunctions.PushArray(amx, &amx_addr, phys_addr, array.ptr, numcells);
+
+		if(error)
+			throw new AmxException(error);
+
+		return amx_addr;
 	}
 
 	@trusted
-	AmxError AmxRaiseError(ref Amx amx, int error)
+	void AmxRaiseError(ref Amx amx, int error_code)
 	{
-		return RawAmxFunctions.RaiseError(amx, error);
+		AmxError error = RawAmxFunctions.RaiseError(amx, error_code);
+
+		if(error)
+			throw new AmxException(error);
+
 	}
 
 	@trusted
-	AmxError AmxRelease(ref Amx amx, cell amx_addr)
+	void AmxRelease(ref Amx amx, cell amx_addr)
 	{
-		return RawAmxFunctions.Release(amx, amx_addr);
+		AmxError error = RawAmxFunctions.Release(amx, amx_addr);
+
+		if(error)
+			throw new AmxException(error);
+
 	}
 
 	@trusted
-	AmxError AmxSetCallback(ref Amx amx, AmxCallback_fn callback)
+	void AmxSetCallback(ref Amx amx, AmxCallback_fn callback)
 	{
-		return RawAmxFunctions.SetCallback(amx, callback);
+		AmxError error = RawAmxFunctions.SetCallback(amx, callback);
+
+		if(error)
+			throw new AmxException(error);
+
 	}
 
 	@trusted
-	AmxError AmxSetDebugHook(ref Amx amx, AmxDebug_fn dbg)
+	void AmxSetDebugHook(ref Amx amx, AmxDebug_fn dbg)
 	{
-		return RawAmxFunctions.SetDebugHook(amx, dbg);
+		AmxError error = RawAmxFunctions.SetDebugHook(amx, dbg);
+
+		if(error)
+			throw new AmxException(error);
+
 	}
 
 	@trusted
-	AmxError AmxSetString(ref cell dest, string source, int pack, int use_wchar, size_t size)
+	void AmxSetString(cell* dest, string source, bool pack, bool use_wchar, size_t size)
 	{
-		return RawAmxFunctions.SetString(&dest, source.ptr, pack, use_wchar, size);
+		AmxError error = RawAmxFunctions.SetString(dest, source.ptr, pack, use_wchar, size);
+
+		if(error)
+			throw new AmxException(error);
+
 	}
 
 	@trusted
-	AmxError AmxSetUserData(ref Amx amx, long tag, void* ptr)
+	void AmxSetUserData(ref Amx amx, long tag, void* ptr)
 	{
-		return RawAmxFunctions.SetUserData(amx, tag, ptr);
+		AmxError error = RawAmxFunctions.SetUserData(amx, tag, ptr);
+
+		if(error)
+			throw new AmxException(error);
+
 	}
 
 	@trusted 
-	AmxError AmxStrLen(const ref cell cstring, out int length)
+	int AmxStrLen(const ref cell cstring)
 	{
-		return RawAmxFunctions.StrLen(&cstring, &length);
+		int length;
+		AmxError error = RawAmxFunctions.StrLen(&cstring, &length);
+
+		if(error)
+			throw new AmxException(error);
+
+		return length;
 	}
 
 	@trusted
-	AmxError AmxAllot(ref Amx amx, int cells, out cell amx_addr, cell** phys_addr)
+	cell AmxAllot(ref Amx amx, int cells, cell** phys_addr)
 	{
-		return RawAmxFunctions.Allot(amx, cells, &amx_addr, phys_addr);
+		cell amx_addr;
+		AmxError error = RawAmxFunctions.Allot(amx, cells, &amx_addr, phys_addr);
+
+		if(error)
+			throw new AmxException(error);
+
+		return amx_addr;
 	}
 
 	@trusted
-	AmxError AmxUTF8Check(string str, out int length)
+	int AmxUTF8Check(string str)
 	{
-		return RawAmxFunctions.UTF8Check(str.ptr, &length);
+		int length;
+		AmxError error = RawAmxFunctions.UTF8Check(str.ptr, &length);
+
+		if(error)
+			throw new AmxException(error);
+
+		return length;
 	}
 
 	@trusted
-	AmxError AmxUTF8Get(const char* str, const char** endptr, out cell value)
+	cell AmxUTF8Get(const char* str, const char** endptr)
 	{
-		return RawAmxFunctions.UTF8Get(str, endptr, &value);
+		cell value;
+		AmxError error = RawAmxFunctions.UTF8Get(str, endptr, &value);
+
+		if(error)
+			throw new AmxException(error);
+
+		return value;
 	}
 
 	@trusted
-	AmxError AmxUTF8Len(const ref cell cstr, out int length)
+	int AmxUTF8Len(const ref cell cstr)
 	{
-		return RawAmxFunctions.UTF8Len(&cstr, &length);
+		int length;
+		AmxError error = RawAmxFunctions.UTF8Len(&cstr, &length);
+
+		if(error)
+			throw new AmxException(error);
+
+		return length;
 	}
 
 	@trusted
-	AmxError AmxUTF8Put(char* str, char** endptr, int maxchars, cell value)
+	void AmxUTF8Put(char* str, char** endptr, int maxchars, cell value)
 	{
-		return RawAmxFunctions.UTF8Put(str, endptr, maxchars, value);
+		AmxError error = RawAmxFunctions.UTF8Put(str, endptr, maxchars, value);
+
+		if(error)
+			throw new AmxException(error);
+
 	}
 }

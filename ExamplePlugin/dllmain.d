@@ -3,86 +3,78 @@ module dllmain;
 import std.stdio;
 import sampsdk.amx;
 import sampsdk.plugin;
+import sampsdk.exception;
 
 extern(C)
 {
 	cell Test(ref Amx amx, cell* params)
 	{
-		AmxFlags flags;
-		int idxNative, idxPublic, idx, len;
-		cell cl, dl;
+		int idxNative, idxPublic;
+		cell cl;
 		cell* addr;
-		char chrs[256];
-		long codesize, datasize, stackheap;
-		AmxNativeInfo* ani;
+		AmxNativeInfo* nativeInfo;
+		AmxMemInfo memInfo;
+		string param, tagName;
 
-		string param = AmxStrParam(amx, params[1]);
-		LogPrintf("Test param: %s,%f", param.ptr, AmxCtof(params[2]));
+		try
+		{
+			param = AmxStrParam(amx, params[1]);
 
-		AmxFindNative(amx, "CreateVehicle", idxNative);
-		LogPrintf("findNative: %i", idxNative);
+			LogPrintf("Test param: %s,%f", param.ptr, AmxCtof(params[2]));
 
-		AmxFindPublic(amx, "TestPublic", idxPublic);
-		LogPrintf("findPublic: %i", idxPublic);
+			LogPrintf("findNative: %i", idxNative = AmxFindNative(amx, "CreateVehicle"));
 
-		LogPrintf("findPubVar result: %i", AmxFindPubVar(amx, "TestVar", idx));
-		LogPrintf("findPubVar: %i", cl);
+			LogPrintf("findPublic: %i", idxPublic = AmxFindPublic(amx, "TestPublic"));
 
-		LogPrintf("pushString result: %i", AmxPushString(amx, dl, null, "push test", 0, 0));
+			LogPrintf("callback: %i", AmxCallback(amx, 0, &cl));
 
-		LogPrintf("push result: %i", AmxPush(amx, 253));
+			LogPrintf("pushString: %i", cl = AmxPushString(amx, null, "push test", false, false));
 
-		LogPrintf("exec result: %i", AmxExec(amx, cl, idxPublic));
-		LogPrintf("exec: %i", cl);
+			AmxPush(amx, 253);
 
-		LogPrintf("findTagId result: %i", AmxFindTagId(amx, 0, "TestTag"));
-		
-		LogPrintf("getFlags result: %i", AmxGetFlags(amx, flags));
-		LogPrintf("getFlags: %i", flags);
+			LogPrintf("exec: %i", cl = AmxExec(amx, idxPublic));
 
-		LogPrintf("getAddr result: %i", AmxGetAddr(amx, params[1], addr));
-		LogPrintf("getAddr: %X", addr);
+			LogPrintf("getFlags: %i", AmxGetFlags(amx));
 
-		LogPrintf("getNative result: %i", AmxGetNative(amx, idxNative, chrs));
-		LogPrintf("getNative: %s", chrs.ptr);
+			LogPrintf("getAddr result: %i", addr = AmxGetAddr(amx, params[1]));
 
-		LogPrintf("getPublic result: %i", AmxGetPublic(amx, idxPublic, chrs));
-		LogPrintf("getPublic: %s", chrs.ptr);
+			LogPrintf("getNative: %s", AmxGetNative(amx, idxNative, 128).ptr);
 
-		LogPrintf("getPubVar result: %i", AmxGetPubVar(amx, 1, chrs, cl));
-		LogPrintf("getPubVar: %X \"%s\"", cl, chrs.ptr);
+			LogPrintf("getPublic: %s", AmxGetPublic(amx, idxPublic, 128).ptr);
 
-		LogPrintf("getString result: %i", AmxGetString(chrs, addr, 0, chrs.length));
-		LogPrintf("getString: %s", chrs.ptr);
+			//LogPrintf("findPubVar: %i", AmxFindPubVar(amx, "TestVar"));
 
-		LogPrintf("getTag result: %i", AmxGetTag(amx, 0, chrs, cl));
-		LogPrintf("getTag: %X \"%s\"", cl, chrs.ptr);
+			//LogPrintf("getPubVar: %s", AmxGetPubVar(amx, 0, cl, 128).ptr);
 
-		LogPrintf("memInfo result: %i", AmxMemInfo(amx, codesize, datasize, stackheap));
-		LogPrintf("memInfo: %i, %i, %i", codesize, datasize, stackheap);
+			LogPrintf("getString: %s", AmxGetString(addr, false, 128).ptr);
 
-		LogPrintf("nameLength result: %i", AmxNameLength(amx, len));
-		LogPrintf("nameLength: %i", len);
+			tagName = AmxGetTag(amx, 0, cl, 128);
+			LogPrintf("getTag: %s", tagName.ptr);
+			LogPrintf("getTag id: %X", cl);
 
-		LogPrintf("nativeInfo result: %i", (ani = AmxGetNativeInfo("TestFunction", &Test)));
-		LogPrintf("nativeInfo: %s", ani.name);
+			LogPrintf("findTagId result: %s", AmxFindTagId(amx, cl, 128).ptr);
 
-		LogPrintf("numNatives result: %i", AmxNumNatives(amx, idx));
-		LogPrintf("numNatives: %i", idx);
+			memInfo = AmxGetMemInfo(amx);
+			LogPrintf("memInfo: %i, %i, %i", memInfo.codesize, memInfo.datasize, memInfo.stackheap);
 
-		LogPrintf("numPublics result: %i", AmxNumPublics(amx, idx));
-		LogPrintf("numPublics: %i", idx);
+			LogPrintf("nameLength: %i", AmxNameLength(amx));
 
-		LogPrintf("numPubVars result: %i", AmxNumPubVars(amx, idx));
-		LogPrintf("numPubVars: %i", idx);
+			LogPrintf("nativeInfo result: %i", (nativeInfo = AmxGetNativeInfo("TestFunction", &Test)));
+			LogPrintf("nativeInfo: %s", nativeInfo.name);
 
-		LogPrintf("numTags result: %i", AmxNumTags(amx, idx));
-		LogPrintf("numTags: %i", idx);
+			LogPrintf("numNatives: %i", AmxNumNatives(amx));
+			LogPrintf("numPublics: %i", AmxNumPublics(amx));
+			LogPrintf("numPubVars: %i", AmxNumPubVars(amx));
+			LogPrintf("numTags: %i", AmxNumTags(amx));
 
-		LogPrintf("setString result: %i", AmxSetString(params[3], "test", 0, 0, params[4]));
+			AmxSetString(AmxGetAddr(amx, params[3]), "set test", false, false, params[4]);
 
-		LogPrintf("strLen result: %i", AmxStrLen(params[3], len));
-		LogPrintf("strLen: %i", len);
+			LogPrintf("strLen: %i", AmxStrLen(params[3]));
+		}
+		catch(AmxException e)
+		{
+			LogPrintf("Exception in file %s (l:%i): %s", e.file.ptr, e.line, e.getErrorString().ptr);
+		}
 
 		return 16;
 	}
@@ -112,7 +104,17 @@ extern(System)
 	int AmxLoad(ref Amx amx)
 	{
 		LogPrintf("AmxLoad");
-		return AmxRegister(amx, PluginNatives, -1);
+		try
+		{
+			AmxRegister(amx, PluginNatives, -1);
+		}
+		catch(AmxException e)
+		{
+			LogPrintf("Could not register natives with AMX: %s", e.getErrorString());
+			return e.getError();
+		}
+
+		return AmxError.NONE;
 	}
 
 	int AmxUnload(ref Amx amx)

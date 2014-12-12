@@ -203,6 +203,7 @@
   </Folder>
   <Folder name="SDK">
    <File path="SDK\amx.d" />
+   <File path="SDK\exception.d" />
    <File path="SDK\plugin.d" />
   </Folder>
  </Folder>
