@@ -49,7 +49,7 @@ string[] AmxErrorString =
 	AmxError.MEMORY : "Out of memory",
 	AmxError.FORMAT : "Invalid file format",
 	AmxError.VERSION : "File is for a newer version of the AMX",
-	AmxError.NOTFOUND : "Function not found",
+	AmxError.NOTFOUND : "Not found",
 	AmxError.INDEX : "Bad entry point",
 	AmxError.DEBUG : "Debugger cannot run",
 	AmxError.INIT : "AMX not initialized",
