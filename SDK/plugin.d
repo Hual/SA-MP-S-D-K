@@ -4,6 +4,11 @@ import sampsdk.amx;
 
 enum uint PLUGIN_VERSION = 0x200;
 
+version(Posix)
+{
+	import core.runtime;
+}
+
 version(Windows)
 {
 	import std.c.windows.windows;
@@ -14,6 +19,7 @@ version(Windows)
 		switch(ulReason)
 		{
 			case DLL_PROCESS_ATTACH:
+				
 				dll_process_attach(hInstance, true);
 				break;
 
@@ -57,5 +63,21 @@ extern(C)
 		AmxFunctions* amxExports;
 		void* fnCallPublicFS;
 		void* fnCallPublicGM;
+	}
+}
+
+void InitializePlugin()
+{
+	version(Posix)
+	{
+		Runtime.initialize();
+	}
+}
+
+void TerminatePlugin()
+{
+	version(Posix)
+	{
+		Runtime.terminate();
 	}
 }

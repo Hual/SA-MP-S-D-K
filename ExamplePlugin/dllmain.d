@@ -90,6 +90,7 @@ extern(System)
 {
 	bool Load(ref PluginData data)
 	{
+		InitializePlugin();
 		LogPrintf = data.logPrintf;
 		RawAmxFunctions = data.amxExports;
 		LogPrintf("Load");
@@ -99,6 +100,7 @@ extern(System)
 	void Unload()
 	{
 		LogPrintf("Unload");
+		TerminatePlugin();
 	}
 
 	int AmxLoad(ref Amx amx)
