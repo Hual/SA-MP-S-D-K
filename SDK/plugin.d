@@ -19,7 +19,6 @@ version(Windows)
 		switch(ulReason)
 		{
 			case DLL_PROCESS_ATTACH:
-				
 				dll_process_attach(hInstance, true);
 				break;
 
